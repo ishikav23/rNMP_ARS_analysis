@@ -32,13 +32,11 @@ The [__RibosePrefereneceAnalysis__](https://github.com/xph9876/RibosePreferenceA
 4. __draw_ars_split.py__: Line charts for rNMP incorporation rate change and leading/lagging ratio during DNA replication. 
 5. __generate_box_plot.py__: Box plots to compare dinucleotide frequency on the leading and lagging strand in a particular range.
 
-   ## License
+## License
 
-   This software is under GNU GPL v3.0 license
+This software is under GNU GPL v3.0 license
 
-   ## Contact
+## Contact
 
-   If you have any question, please contact me at [pxu64@gatech.edu](mailto:pxu64@gatech.edu).
-
-   Please give me a star if you like it!
+If you have any question, please contact me at [pxu64@gatech.edu](mailto:pxu64@gatech.edu).
 
