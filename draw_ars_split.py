@@ -4,7 +4,7 @@ import argparse
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, ScalarFormatter
 import sys
 
 # turn off warning
@@ -64,6 +64,7 @@ def main():
     parser.add_argument('--box', action='store_true', help='Draw box plot for ratios')
     parser.add_argument('--line', action='store_true', help='Draw  plot line chart for ratio trend')
     parser.add_argument('--no-label', action='store_true', help='Hide label, header and legend in the plot')
+    parser.add_argument('--same_scale', action='store_true', help='Use same scale for all plots')
     args = parser.parse_args()
     if not any([args.bar, args.box, args.line]):
         args.line = True
@@ -86,7 +87,7 @@ def main():
 
 
     # set genotype needed for plot
-    genotype_needed =  df.Genotype.unique()
+    genotype_needed =  ['WT', 'rnh201','PolWT','Pol2M644G','Pol3L612M', 'Pol3L612G','Pol1L868M','Pol1Y869A']
     # column number for first rnmp column
     RNMP_COL_NUM = 9
 
@@ -122,7 +123,7 @@ def main():
     co = {'leading':colorlist[0], 'lagging':colorlist[1]}
     # build color dict for time
     # remove yellow color which is not print friendly
-    colorlist = colorlist[:1] + colorlist[3:]
+    colorlist = ['#a570f3','#1bce77','#d95f02']
     colort = {}
     for i in range(len(times)):
         colort[times[i]] = colorlist[i]
@@ -145,49 +146,8 @@ def main():
             if total_ribo >= args.m:
                 lib_needed[t].append(l)
             ratios.append(dc)
-
-            if args.bar:
-                fig, ax = plt.subplots(figsize=(len(da)/2+2,6))
-                sns.barplot(x='Position', y='Sum', hue='Strand', hue_order=['leading','lagging'], data=da, palette=co, ci=None)
-                plt.suptitle('Ribos incorporation in leading/lagging Strand\n {}, Time < {} min'.format(l, t))
-                plt.savefig(args.o + '_{}_{}_bar.png'.format(l,t))
-                plt.close('all')
-
-                dc['Lagging'] = dc.Sum_lagging/dc.Total
-                dc['Leading'] = dc.Sum_leading/dc.Total
-                dc['Ratio'] = dc.Sum_leading/dc.Sum_lagging
-                fig, ax = plt.subplots(figsize=(len(dc)/2+2,6))
-                sns.barplot(x=dc.Position, y=dc.Leading, color=colorlist[0], ci=None, label='Leading')
-                sns.barplot(x=dc.Position, y=dc.Lagging, bottom=dc.Leading, color=colorlist[1], ci=None, label='Lagging')
-                plt.suptitle('Ribos incorporation percentage in leading/lagging Strand\n {}, Time < {} min'.format(l, t))
-                ax.set_ylabel('Leading Percentage')
-                plt.legend(loc='upper left', bbox_to_anchor=(1,1), ncol=1)
-                plt.savefig(args.o + '_{}_{}_bar_percent.png'.format(l,t))
-                plt.close('all')
-    if args.bar:
-        print('bar plots generated!')
     # generate data frame
     dmerge = pd.concat(ratios, sort=True)
-
-
-    # box plots for ratios
-    # box plot for ratios
-    if args.box:
-        for tr in genotype_needed:
-            db = dmerge[dmerge.Genotype == tr]
-            if db.empty:
-                continue
-            fig, ax = plt.subplots(figsize=(len(db.Position.unique())*0.8+2,8))
-            sns.boxplot(x='Position', y='Ratio', hue='Time', data=db, palette=colort)
-            plt.suptitle('Leading/lagging ratio with increasing distance to ARS ({})'.format(tr))
-            # set maximum y lim to 4
-            ax.set_ylim([0, min(4, ax.get_ylim()[1])])
-            ax.set_ylabel('Leading/Lagging')
-            ax.set_xlabel('Distance')
-            plt.savefig(args.o + '_ratio_{}_box.png'.format(tr))
-            plt.close('all')
-        print('Box plot for ratio generated!')
-
 
     if args.line:
         # feature
@@ -233,7 +193,7 @@ def main():
             if db.empty:
                 continue
             # Median, MLE_Sum
-            for r in ['Median','Sum']:
+            for r in ['Sum']:
                 fig, ax = plt.subplots(figsize=(9,9))
                 sns.lineplot(x='Position', y=r, hue='Time', data=db, palette=colort, linewidth=4)
                 plt.suptitle('Leading/lagging ratio with increasing distance to ARS\n ({}, {})'.format(tr, r))
@@ -241,22 +201,14 @@ def main():
                 ax.set_xlabel('Distance to ARS (kb)')
                 if args.no_label:
                     hide_label(fig, ax)
+                fig.subplots_adjust(top=0.99, left=0.15, right=0.99, bottom=0.08)
+                if args.same_scale:
+                    plt.ylim([0.2,6])
+                    plt.yscale('log')
+                    ax.yaxis.set_major_formatter(ScalarFormatter())
+                    ax.yaxis.set_ticks([0.2,0.5,1,2,5])
                 plt.savefig(args.o + '_ratio_{}_{}.png'.format(tr,r).lower())
                 plt.close('all')
-            # total
-            fig, ax = plt.subplots(figsize=(9,9))
-            sns.lineplot(x='Position', y='Total', hue='Time', data=db, palette=colort, linewidth=4)
-            plt.suptitle('Ribonucleotides incorporation with increasing distance to ARS\n ({})'.format(tr))
-            ax.set_ylabel('Counts')
-            ax.set_xlabel('Distance to ARS (kb)')
-            for tick in ax.yaxis.get_major_ticks():
-                tick.label.set_fontsize(24)
-            for tick in ax.xaxis.get_major_ticks():
-                tick.label.set_fontsize(24)
-            if args.no_label:
-                hide_label(fig, ax)
-            plt.savefig(args.o + '_total_{}.png'.format(tr).lower())
-            plt.close('all')
             # Compositions for leading/lagging ratio
             # build dataframe
             for k,v in feature_groups.items():
@@ -270,32 +222,14 @@ def main():
                         if v not in lib_params[w]:
                             lib_params[w].append(v)
                     df_comp[w] = pd.Categorical(df_comp[w], lib_params[w])
-                # draw split
-                for t in times:
-                    da = df_comp[df_comp.Time == t]
-                    fig, ax = plt.subplots(figsize=(9,9))
-                    sns.lineplot(x='Position', y='Value', hue='Feature', data=da, palette=colorb, linewidth=4)
-                    plt.suptitle('Leading/lagging ratio for rNMP with increasing distance to ARS \n({}, {}, {})'.format(tr, t, k))
-                    ax.set_ylabel('Leading/Lagging ratio')
-                    ax.set_xlabel('Distance to ARS (kb)')
-                    set_legend(ax)
-                    for tick in ax.yaxis.get_major_ticks():
-                        tick.label.set_fontsize(24)
-                    for tick in ax.xaxis.get_major_ticks():
-                        tick.label.set_fontsize(24)
-                    if args.no_label:
-                        hide_label(fig, ax)
-                    plt.savefig(args.o + '_rNMP' +'_{}_{}_{}.png'.format(tr,t,k).lower())
-                    plt.close('all')
-
         # leading and lagging
-        for df_lela, slela in [[df_leading, 'leading'], [df_lagging, 'lagging']]:
-            for tr in genotype_needed:
+        for tr in genotype_needed:
+            for df_lela, slela in [[df_leading, 'leading'], [df_lagging, 'lagging']]:
                 dlela = df_lela[(df_lela.Genotype == tr)].sort_values(by='Time')
                 if dlela.empty:
                     continue
                 # total
-                for ydata in ['Total','RPB']:
+                for ydata in ['RPB']:
                     fig, ax = plt.subplots(figsize=(9,9))
                     sns.lineplot(x='Position', y=ydata, hue='Time', data=dlela, palette=colort, linewidth=4)
                     plt.suptitle(f'Ribonucleotides incorporation with increasing distance to ARS \n({slela} strand, {tr})')
@@ -313,61 +247,9 @@ def main():
                         tick.label.set_fontsize(24)
                     if args.no_label:
                         hide_label(fig, ax)
+                    plt.ylim((0.03, 0.082))
                     plt.savefig(args.o + f'_{ydata}_{slela}_{tr}.png'.lower())
                     plt.close('all')
-                # Compositions
-                # build dataframe
-                for k,v in feature_groups.items():
-                    dcomp = []
-                    for index, l in dlela.iterrows():
-                        for fe in v:
-                            dcomp.append([l.Time, l.Position, fe, l[fe]])
-                    df_comp = pd.DataFrame(dcomp, columns=['Time','Position','Feature','Value'])
-                    # draw split
-                    for t in times:
-                        da = df_comp[df_comp.Time == t]
-                        fig, ax = plt.subplots(figsize=(9,9))
-                        sns.lineplot(x='Position', y='Value', hue='Feature', data=da, palette=colorb, linewidth=4)
-                        plt.suptitle(f'Frequency of rNMP with increasing distance to ARS\n ({slela} strand, {tr}, {t}, {k})')
-                        ax.yaxis.set_major_formatter(f_scientific)
-                        ax.set_ylabel('Frequency')
-                        ax.set_xlabel('Distance to ARS (kb)')
-                        set_legend(ax)
-                        for tick in ax.yaxis.get_major_ticks():
-                            tick.label.set_fontsize(24)
-                        for tick in ax.xaxis.get_major_ticks():
-                            tick.label.set_fontsize(24)
-                        if args.no_label:
-                            hide_label(fig, ax)
-                        plt.savefig(args.o + f'_rNMP_{slela}_{tr}_{t}_{k}.png'.lower())
-                        plt.close('all')
-                # stacked area plot
-                for t in times:
-                    da = dlela[dlela.Time == t].sort_values(by='Position')
-                    da['total'] = 0
-                    for fe in feature_groups['Normalized']:
-                        da['total'] += da[fe]
-                    data = []
-                    for fe in feature_groups['Normalized']:
-                        data.append((da[fe]/da['total']).tolist())
-                    fig, ax = plt.subplots(figsize=(9,9))
-                    plt.stackplot(da.Position.tolist(), data, labels=['A','C','G','U'], colors=colorb)
-                    plt.suptitle(f'Relative rNMP incorporation rate during DNA replication process\n ({slela} strand, {tr}, {t}, {k})')
-                    plt.legend()
-                    ax.set_ylabel('Rate')
-                    ax.set_xlabel('Distance to ARS (kb)')
-                    plt.ylim([0,1])
-                    plt.xlim([da.Position.min(), da.Position.max()])
-                    for tick in ax.yaxis.get_major_ticks():
-                        tick.label.set_fontsize(24)
-                    for tick in ax.xaxis.get_major_ticks():
-                        tick.label.set_fontsize(24)
-                    if args.no_label:
-                        hide_label(fig, ax)
-                    plt.savefig(args.o + f'_rNMP_rate_{slela}_{tr}_{t}_{k}.png'.lower())
-                    plt.close('all')
-
-
         print('line chart generated!')
         print('Done!')
 
