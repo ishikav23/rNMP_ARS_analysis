@@ -17,6 +17,7 @@ def main():
     parser.add_argument('-l', type=int, default=15000, help='Length of flank region, default=15000')
     parser.add_argument('-o', default='Output', help='Output file basename')
     parser.add_argument('--block_ribosomal', action='store_false',  help='Do not block ribosomal DNA')
+    parser.add_argument('--efficiency', action='store_true', help='Use efficiency instead of time')
     args = parser.parse_args()
 
     # read lib info
@@ -42,10 +43,12 @@ def main():
     # generate summary
     df_summary = generate_summary(df)
     genotypes=df_summary.Genotype.unique()
-
+    genotypes_possible = ['Rrnh201','EMrnh201','rnh201','WT']
+    genotypes_used = [x for x in genotypes_possible if x in genotypes]
     # plot
-    draw_ratio_scatter(df_summary, genotypes=genotypes,output=args.o+'_MLE_scatter.png')
-    draw_ratio_scatter(df_summary, genotypes=genotypes,output=args.o+'_mean_scatter.png', use_MLE_ratio=False)
+    draw_ratio_scatter(df_summary, genotypes_used, output=args.o+'_MLE_scatter.png', use_efficiency=args.efficiency)
+    draw_ratio_scatter(df_summary, genotypes_used, output=args.o+'_mean_scatter.png', use_MLE_ratio=False, use_efficiency=args.efficiency)
+
     print('Done!')
 
 
