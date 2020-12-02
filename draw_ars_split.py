@@ -34,6 +34,7 @@ def categorize_df(df, orders):
             if v not in categorical_order:
                 categorical_order.append(v)
         df[w] = pd.Categorical(df[w], categorical_order)
+    return df
 
 
 # hide label and titles
@@ -60,11 +61,13 @@ def main():
     parser.add_argument('ars', type=argparse.FileType('r'), help='Ars region frequency file')
     parser.add_argument('-m', type=int, default=100, help='Minimum number of ribose as threshold, default=100')
     parser.add_argument('-o', default='', help='Output basename')
+    parser.add_argument('--ppb', action='store_true', help='PPB data is available')
     parser.add_argument('--bar', action='store_true', help='Draw bar plot of each library')
     parser.add_argument('--box', action='store_true', help='Draw box plot for ratios')
     parser.add_argument('--line', action='store_true', help='Draw  plot line chart for ratio trend')
     parser.add_argument('--no-label', action='store_true', help='Hide label, header and legend in the plot')
     parser.add_argument('--same_scale', action='store_true', help='Use same scale for all plots')
+    parser.add_argument('--hy', action='store_true', help='HydEn-seq libraries')
     args = parser.parse_args()
     if not any([args.bar, args.box, args.line]):
         args.line = True
@@ -80,7 +83,7 @@ def main():
     lib_params = {'Genotype':['WT', 'pip', 'rnh1', 'rnh201', 'RED', 'PolWT','Pol2M644G',\
          'Pol3L612M', 'Pol3L612G','Pol1L868M','Pol1Y869A'],\
             'RE':['RE1','RE2','RE3'],\
-            'Time': ['early', 'medium', 'late'],\
+            'Time': ['early', 'medium', 'late', 'high','low'],\
             'Strand': ['leading', 'lagging'],\
             'String':['E134', 'BY4741', 'BY4742', 'YFP17', 'W303', 'S288C'] }
     categorize_df(df, lib_params)
@@ -89,7 +92,7 @@ def main():
     # set genotype needed for plot
     genotype_needed =  ['WT', 'rnh201','PolWT','Pol2M644G','Pol3L612M', 'Pol3L612G','Pol1L868M','Pol1Y869A']
     # column number for first rnmp column
-    RNMP_COL_NUM = 9
+    RNMP_COL_NUM = 9 if not args.ppb else 10
 
     # formatter for scientific
     def my_scientific_format(y):
@@ -169,16 +172,23 @@ def main():
                         continue
                     db['Ratio'] = db['Sum_leading'] / db['Sum_lagging']
                     db['Length'] = db['Sum_leading'] /db['RPB_leading']
-                    dsummary.append([tr,t,f, db.Total.sum(), db.Ratio.median()] + [db['{}_leading'.format(fe)].sum()/db['{}_lagging'.format(fe)].sum() for fe in features])
-                    dleading.append([tr,t,f, db.Sum_leading.sum(), db.RPB_leading.mean()] + [db['{}_leading'.format(fe)].mean() for fe in features])
-                    dlagging.append([tr,t,f, db.Sum_lagging.sum(), db.RPB_lagging.mean()] + [db['{}_lagging'.format(fe)].mean() for fe in features])
-        df_summary = pd.DataFrame(dsummary, columns = ['Genotype', 'Time', 'Position', 'Total', 'Median'] + ['{}'.format(fe) for fe in features])
-        df_leading = pd.DataFrame(dleading, columns = ['Genotype', 'Time', 'Position', 'Total', 'RPB'] + ['{}'.format(fe) for fe in features])
-        df_lagging = pd.DataFrame(dlagging, columns = ['Genotype', 'Time', 'Position', 'Total', 'RPB'] + ['{}'.format(fe) for fe in features])
-        categorize_df(df_summary, lib_params)
-        categorize_df(df_leading, lib_params)
-        categorize_df(df_lagging, lib_params)
-
+                    dsummary.append([tr,t,f, db.Total.sum(), db.Ratio.median(), db.Ratio.std()] + [db['{}_leading'.format(fe)].sum()/db['{}_lagging'.format(fe)].sum() for fe in features])
+                    if args.ppb:
+                        dleading.append([tr,t,f, db.Sum_leading.sum(), db.RPB_leading.mean(), db.RPB_leading.std(), db.PPB_leading.mean(), db.PPB_leading.std()] + [db['{}_leading'.format(fe)].mean() for fe in features])
+                        dlagging.append([tr,t,f, db.Sum_lagging.sum(), db.RPB_lagging.mean(), db.RPB_lagging.std(), db.PPB_lagging.mean(), db.PPB_lagging.std()] + [db['{}_lagging'.format(fe)].mean() for fe in features])
+                    else:
+                        dleading.append([tr,t,f, db.Sum_leading.sum(), db.RPB_leading.mean(), db.RPB_leading.std()] + [db['{}_leading'.format(fe)].mean() for fe in features])
+                        dlagging.append([tr,t,f, db.Sum_lagging.sum(), db.RPB_lagging.mean(), db.RPB_lagging.std()] + [db['{}_lagging'.format(fe)].mean() for fe in features])
+        df_summary = pd.DataFrame(dsummary, columns = ['Genotype', 'Time', 'Position', 'Total', 'Median', 'Std'] + ['{}'.format(fe) for fe in features])
+        if args.ppb:
+            df_leading = pd.DataFrame(dleading, columns = ['Genotype', 'Time', 'Position', 'Total', 'RPB', 'RPB_std', 'PPB', 'PPB_std'] + ['{}'.format(fe) for fe in features])
+            df_lagging = pd.DataFrame(dlagging, columns = ['Genotype', 'Time', 'Position', 'Total', 'RPB', 'RPB_std', 'PPB', 'PPB_std'] + ['{}'.format(fe) for fe in features])
+        else:
+            df_leading = pd.DataFrame(dleading, columns = ['Genotype', 'Time', 'Position', 'Total', 'RPB', 'RPB_std'] + ['{}'.format(fe) for fe in features])
+            df_lagging = pd.DataFrame(dlagging, columns = ['Genotype', 'Time', 'Position', 'Total', 'RPB', 'RPB_std'] + ['{}'.format(fe) for fe in features])
+        df_summary = categorize_df(df_summary, lib_params)
+        df_leading = categorize_df(df_leading, lib_params)
+        df_lagging = categorize_df(df_lagging, lib_params)
         # draw line chart for small window summaries
         feature_groups = {'Raw':[],'Normalized':[]}
         columns = list(df_summary.columns)
@@ -196,6 +206,15 @@ def main():
             for r in ['Sum']:
                 fig, ax = plt.subplots(figsize=(9,9))
                 sns.lineplot(x='Position', y=r, hue='Time', data=db, palette=colort, linewidth=4)
+                # add std
+                facecolors = ['#cc99cc', '#99cc99']
+                c = 0
+                for t in db.Time.unique():
+                    dc = db[db.Time == t].sort_values('Position')
+                    ax.fill_between(dc.Position, dc.Sum + dc.Std, dc.Sum - dc.Std, facecolor = facecolors[c], alpha=0.4)
+                    c += 1
+                if not args.hy:
+                    plt.ylim((max(0, ax.get_ylim()[0]), min(ax.get_ylim()[1], 6)))
                 plt.suptitle('Leading/lagging ratio with increasing distance to ARS\n ({}, {})'.format(tr, r))
                 ax.set_ylabel('Leading/Lagging ratio')
                 ax.set_xlabel('Distance to ARS (kb)')
@@ -229,17 +248,28 @@ def main():
                 if dlela.empty:
                     continue
                 # total
-                for ydata in ['RPB']:
+                for ydata in ['RPB', 'PPB']:
                     fig, ax = plt.subplots(figsize=(9,9))
                     sns.lineplot(x='Position', y=ydata, hue='Time', data=dlela, palette=colort, linewidth=4)
+                    ylims = ax.get_ylim()
+                    # add std
+                    facecolors = ['#cc99cc', '#99cc99']
+                    c = 0
+                    for t in dlela.Time.unique():
+                        dc = dlela[dlela.Time == t].sort_values('Position')
+                        ax.fill_between(dc.Position, dc[ydata] + dc[f'{ydata}_std'], dc[ydata] - dc[f'{ydata}_std'], facecolor = facecolors[c], alpha=0.4)
+                        c += 1
+                    if not args.hy:
+                        plt.ylim((max(0, ax.get_ylim()[0]), min(ax.get_ylim()[1], 3)))
                     plt.suptitle(f'Ribonucleotides incorporation with increasing distance to ARS \n({slela} strand, {tr})')
-                    if ydata == 'Total':
+                    # ax.ticklabel_format(useOffset=False)
+                    if ydata in ['Total','RPB']:
                         ax.set_ylabel('Counts')
-                        ax.yaxis.set_major_formatter(f_scientific)
                     else:
-                        if tr == 'WT':
-                            ax.yaxis.set_major_formatter(f_scientific)
-                        ax.set_ylabel('RPB')
+                        ax.set_ylabel(ydata)
+#                         ax.set_ylim([2.2e-8,7.8e-8])
+#                         ax.yaxis.set_ticks([3e-8,5e-8,7e-8])
+                        ax.yaxis.set_major_formatter(f_scientific)
                     ax.set_xlabel('Distance to ARS (kb)')
                     for tick in ax.yaxis.get_major_ticks():
                         tick.label.set_fontsize(24)
@@ -247,7 +277,7 @@ def main():
                         tick.label.set_fontsize(24)
                     if args.no_label:
                         hide_label(fig, ax)
-                    plt.ylim((0.03, 0.082))
+                    # plt.ylim((0.03, 0.082))
                     plt.savefig(args.o + f'_{ydata}_{slela}_{tr}.png'.lower())
                     plt.close('all')
         print('line chart generated!')
