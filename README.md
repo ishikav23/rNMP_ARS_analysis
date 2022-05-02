@@ -3,7 +3,8 @@ Scripts to analysis rNMP incorporation in yeast Autonomously Replication Sequenc
 
 ## Citation
 Please use the following citation for this script.
-Penghao Xu, Francesca Storici, Frequency and patterns of ribonucleotide incorporation around autonomously replicating sequences in yeast reveal the division of labor of replicative DNA polymerases,_Nucleic Acids Research_, Volume 49, Issue 18, 11 October 2021, Pages 10542–10557, https://doi.org/10.1093/nar/gkab801_
+
+Penghao Xu, Francesca Storici, Frequency and patterns of ribonucleotide incorporation around autonomously replicating sequences in yeast reveal the division of labor of replicative DNA polymerases, _Nucleic Acids Research_, Volume 49, Issue 18, 11 October 2021, Pages 10542–10557, https://doi.org/10.1093/nar/gkab801
 
 
 ## Dependency
