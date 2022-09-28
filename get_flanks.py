@@ -8,6 +8,7 @@ from getFlankUtils import *
 
 def main():
      # argparse
+     # "help" parameter is used to specify more details about the argument
      parser = argparse.ArgumentParser(description='Generate ARS flanks')
      parser.add_argument('ars', type=argparse.FileType('r'), help='Bed file for ars region')
      parser.add_argument('index', type=argparse.FileType('r'), help='index file for background genome')
